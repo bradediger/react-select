@@ -28,7 +28,7 @@ const Creatable = React.createClass({
 		menuRenderer: React.PropTypes.any,
 
     // Factory to create new option.
-    // ({ label: string, labelKey: string, valueKey: string }): Object
+    // ({ label: string, value: string, labelKey: string, valueKey: string }): Object
 		newOptionCreator: React.PropTypes.func,
 
 		// input change handler: function (inputValue) {}
@@ -82,7 +82,7 @@ const Creatable = React.createClass({
 		} = this.props;
 
 		if (isValidNewOption({ label: this.inputValue })) {
-			const option = newOptionCreator({ label: this.inputValue, labelKey: this.labelKey, valueKey: this.valueKey });
+			const option = newOptionCreator({ label: this.inputValue, value: this.inputValue, labelKey: this.labelKey, valueKey: this.valueKey });
 			const isOptionUnique = this.isOptionUnique({ option });
 
 			// Don't add the same option twice.
@@ -113,6 +113,7 @@ const Creatable = React.createClass({
 
 			const option = newOptionCreator({
 				label: this.inputValue,
+				value: this.inputValue,
 				labelKey: this.labelKey,
 				valueKey: this.valueKey
 			});
@@ -129,6 +130,7 @@ const Creatable = React.createClass({
 
 				this._createPlaceholderOption = newOptionCreator({
 					label: prompt,
+          value: this.inputValue,
 					labelKey: this.labelKey,
 					valueKey: this.valueKey
 				});
@@ -252,10 +254,10 @@ function isValidNewOption ({ label }) {
 	return !!label;
 };
 
-function newOptionCreator ({ label, labelKey, valueKey }) {
+function newOptionCreator ({ label, value, labelKey, valueKey }) {
 	const option = {};
-	option[valueKey] = label;
- 	option[labelKey] = label;
+	option[valueKey] = value;
+ 	option[labelKey] = value;
  	option.className = 'Select-create-option-placeholder';
  	return option;
 };
