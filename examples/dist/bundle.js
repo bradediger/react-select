@@ -280,6 +280,16 @@ var _Select = require('./Select');
 
 var _Select2 = _interopRequireDefault(_Select);
 
+function reduce(obj) {
+	var props = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+
+	return Object.keys(obj).reduce(function (props, key) {
+		var value = obj[key];
+		if (value !== undefined) props[key] = value;
+		return props;
+	}, props);
+}
+
 var AsyncCreatable = _react2['default'].createClass({
 	displayName: 'AsyncCreatableSelect',
 
@@ -294,10 +304,14 @@ var AsyncCreatable = _react2['default'].createClass({
 					_Select2['default'].Creatable,
 					_this.props,
 					function (creatableProps) {
-						return _react2['default'].createElement(_Select2['default'], _extends({}, asyncProps, creatableProps, {
+						return _react2['default'].createElement(_Select2['default'], _extends({}, reduce(asyncProps, reduce(creatableProps, {})), {
 							onInputChange: function (input) {
 								creatableProps.onInputChange(input);
 								return asyncProps.onInputChange(input);
+							},
+							ref: function (ref) {
+								creatableProps.ref(ref);
+								asyncProps.ref(ref);
 							}
 						}));
 					}
@@ -359,11 +373,17 @@ var Creatable = _react2['default'].createClass({
 		menuRenderer: _react2['default'].PropTypes.any,
 
 		// Factory to create new option.
-		// ({ label: string, labelKey: string, valueKey: string }): Object
+		// ({ label: string, value: string, labelKey: string, valueKey: string }): Object
 		newOptionCreator: _react2['default'].PropTypes.func,
+
+		// input change handler: function (inputValue) {}
+		onInputChange: _react2['default'].PropTypes.func,
 
 		// input keyDown handler: function (event) {}
 		onInputKeyDown: _react2['default'].PropTypes.func,
+
+		// new option click handler: function (option) {}
+		onNewOptionClick: _react2['default'].PropTypes.func,
 
 		// See Select.propTypes.options
 		options: _react2['default'].PropTypes.array,
@@ -401,19 +421,24 @@ var Creatable = _react2['default'].createClass({
 		var _props = this.props;
 		var isValidNewOption = _props.isValidNewOption;
 		var newOptionCreator = _props.newOptionCreator;
+		var onNewOptionClick = _props.onNewOptionClick;
 		var _props$options = _props.options;
 		var options = _props$options === undefined ? [] : _props$options;
 		var shouldKeyDownEventCreateNewOption = _props.shouldKeyDownEventCreateNewOption;
 
 		if (isValidNewOption({ label: this.inputValue })) {
-			var option = newOptionCreator({ label: this.inputValue, labelKey: this.labelKey, valueKey: this.valueKey });
+			var option = newOptionCreator({ label: this.inputValue, value: this.inputValue, labelKey: this.labelKey, valueKey: this.valueKey });
 			var _isOptionUnique = this.isOptionUnique({ option: option });
 
 			// Don't add the same option twice.
 			if (_isOptionUnique) {
-				options.unshift(option);
+				if (onNewOptionClick) {
+					onNewOptionClick(option);
+				} else {
+					options.unshift(option);
 
-				this.select.selectValue(option);
+					this.select.selectValue(option);
+				}
 			}
 		}
 	},
@@ -437,6 +462,7 @@ var Creatable = _react2['default'].createClass({
 
 			var option = _newOptionCreator({
 				label: this.inputValue,
+				value: this.inputValue,
 				labelKey: this.labelKey,
 				valueKey: this.valueKey
 			});
@@ -453,6 +479,7 @@ var Creatable = _react2['default'].createClass({
 
 				this._createPlaceholderOption = _newOptionCreator({
 					label: _prompt,
+					value: this.inputValue,
 					labelKey: this.labelKey,
 					valueKey: this.valueKey
 				});
@@ -483,11 +510,18 @@ var Creatable = _react2['default'].createClass({
 		var menuRenderer = this.props.menuRenderer;
 
 		return menuRenderer(_extends({}, params, {
-			onSelect: this.onOptionSelect
+			onSelect: this.onOptionSelect,
+			selectValue: this.onOptionSelect
 		}));
 	},
 
 	onInputChange: function onInputChange(input) {
+		var onInputChange = this.props.onInputChange;
+
+		if (onInputChange) {
+			onInputChange(input);
+		}
+
 		// This value may be needed in between Select mounts (when this.select is null)
 		this.inputValue = input;
 	},
@@ -572,12 +606,13 @@ function isValidNewOption(_ref4) {
 
 function newOptionCreator(_ref5) {
 	var label = _ref5.label;
+	var value = _ref5.value;
 	var labelKey = _ref5.labelKey;
 	var valueKey = _ref5.valueKey;
 
 	var option = {};
-	option[valueKey] = label;
-	option[labelKey] = label;
+	option[valueKey] = value;
+	option[labelKey] = value;
 	option.className = 'Select-create-option-placeholder';
 	return option;
 };
@@ -1879,70 +1914,69 @@ var Select = _react2['default'].createClass({
 	},
 
 	renderInput: function renderInput(valueArray, focusedOptionIndex) {
-		var _this5 = this;
+		var _classNames,
+		    _this5 = this;
+
+		var className = (0, _classnames2['default'])('Select-input', this.props.inputProps.className);
+		var isOpen = !!this.state.isOpen;
+
+		var ariaOwns = (0, _classnames2['default'])((_classNames = {}, _defineProperty(_classNames, this._instancePrefix + '-list', isOpen), _defineProperty(_classNames, this._instancePrefix + '-backspace-remove-message', this.props.multi && !this.props.disabled && this.state.isFocused && !this.state.inputValue), _classNames));
+
+		// TODO: Check how this project includes Object.assign()
+		var inputProps = _extends({}, this.props.inputProps, {
+			role: 'combobox',
+			'aria-expanded': '' + isOpen,
+			'aria-owns': ariaOwns,
+			'aria-haspopup': '' + isOpen,
+			'aria-activedescendant': isOpen ? this._instancePrefix + '-option-' + focusedOptionIndex : this._instancePrefix + '-value',
+			'aria-labelledby': this.props['aria-labelledby'],
+			'aria-label': this.props['aria-label'],
+			className: className,
+			tabIndex: this.props.tabIndex,
+			onBlur: this.handleInputBlur,
+			onChange: this.handleInputChange,
+			onFocus: this.handleInputFocus,
+			ref: function ref(_ref) {
+				return _this5.input = _ref;
+			},
+			required: this.state.required,
+			value: this.state.inputValue
+		});
 
 		if (this.props.inputRenderer) {
-			return this.props.inputRenderer();
-		} else {
-			var _classNames;
-
-			var className = (0, _classnames2['default'])('Select-input', this.props.inputProps.className);
-			var isOpen = !!this.state.isOpen;
-
-			var ariaOwns = (0, _classnames2['default'])((_classNames = {}, _defineProperty(_classNames, this._instancePrefix + '-list', isOpen), _defineProperty(_classNames, this._instancePrefix + '-backspace-remove-message', this.props.multi && !this.props.disabled && this.state.isFocused && !this.state.inputValue), _classNames));
-
-			// TODO: Check how this project includes Object.assign()
-			var inputProps = _extends({}, this.props.inputProps, {
-				role: 'combobox',
-				'aria-expanded': '' + isOpen,
-				'aria-owns': ariaOwns,
-				'aria-haspopup': '' + isOpen,
-				'aria-activedescendant': isOpen ? this._instancePrefix + '-option-' + focusedOptionIndex : this._instancePrefix + '-value',
-				'aria-labelledby': this.props['aria-labelledby'],
-				'aria-label': this.props['aria-label'],
-				className: className,
-				tabIndex: this.props.tabIndex,
-				onBlur: this.handleInputBlur,
-				onChange: this.handleInputChange,
-				onFocus: this.handleInputFocus,
-				ref: function ref(_ref) {
-					return _this5.input = _ref;
-				},
-				required: this.state.required,
-				value: this.state.inputValue
-			});
-
-			if (this.props.disabled || !this.props.searchable) {
-				var _props$inputProps = this.props.inputProps;
-				var inputClassName = _props$inputProps.inputClassName;
-
-				var divProps = _objectWithoutProperties(_props$inputProps, ['inputClassName']);
-
-				return _react2['default'].createElement('div', _extends({}, divProps, {
-					role: 'combobox',
-					'aria-expanded': isOpen,
-					'aria-owns': isOpen ? this._instancePrefix + '-list' : this._instancePrefix + '-value',
-					'aria-activedescendant': isOpen ? this._instancePrefix + '-option-' + focusedOptionIndex : this._instancePrefix + '-value',
-					className: className,
-					tabIndex: this.props.tabIndex || 0,
-					onBlur: this.handleInputBlur,
-					onFocus: this.handleInputFocus,
-					ref: function (ref) {
-						return _this5.input = ref;
-					},
-					'aria-readonly': '' + !!this.props.disabled,
-					style: { border: 0, width: 1, display: 'inline-block' } }));
-			}
-
-			if (this.props.autosize) {
-				return _react2['default'].createElement(_reactInputAutosize2['default'], _extends({}, inputProps, { minWidth: '5' }));
-			}
-			return _react2['default'].createElement(
-				'div',
-				{ className: className },
-				_react2['default'].createElement('input', inputProps)
-			);
+			return this.props.inputRenderer(inputProps);
 		}
+
+		if (this.props.disabled || !this.props.searchable) {
+			var _props$inputProps = this.props.inputProps;
+			var inputClassName = _props$inputProps.inputClassName;
+
+			var divProps = _objectWithoutProperties(_props$inputProps, ['inputClassName']);
+
+			return _react2['default'].createElement('div', _extends({}, divProps, {
+				role: 'combobox',
+				'aria-expanded': isOpen,
+				'aria-owns': isOpen ? this._instancePrefix + '-list' : this._instancePrefix + '-value',
+				'aria-activedescendant': isOpen ? this._instancePrefix + '-option-' + focusedOptionIndex : this._instancePrefix + '-value',
+				className: className,
+				tabIndex: this.props.tabIndex || 0,
+				onBlur: this.handleInputBlur,
+				onFocus: this.handleInputFocus,
+				ref: function (ref) {
+					return _this5.input = ref;
+				},
+				'aria-readonly': '' + !!this.props.disabled,
+				style: { border: 0, width: 1, display: 'inline-block' } }));
+		}
+
+		if (this.props.autosize) {
+			return _react2['default'].createElement(_reactInputAutosize2['default'], _extends({}, inputProps, { minWidth: '5' }));
+		}
+		return _react2['default'].createElement(
+			'div',
+			{ className: className },
+			_react2['default'].createElement('input', inputProps)
+		);
 	},
 
 	renderClear: function renderClear() {
